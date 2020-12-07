@@ -47,13 +47,6 @@ void KalmanFilter::Update(const VectorXd &z) {
 	MatrixXd Si = S.inverse();
 	MatrixXd K = P_ * Ht * Si;
 
-	cout << "z_pred: " << z_pred << endl;
-	cout << "y: " << y << endl;
-	cout << "H: " << H_ << endl;
-	cout << "Si: " << Si << endl;
-	cout << "K: " << K << endl;
-
-
 	//new state
 	x_ = x_ + K * y;
 	long x_size = x_.size();
@@ -74,29 +67,15 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
 
 
 	//convert to polar coordinates i.e. calculate h(x') = [rho, phi, rho_dot].transposed
-	//1. rho + check and correct for very tiny values so that it will not cause problem at the division later
-	//float r = sqrt(px*px+py*py);
+	//1. rho + check and correct for very tiny values so that it will not cause problems at the division later
 	float rho = tools.CheckNearZero(sqrt(px*px+py*py));
 
-
 	//2. phi
-	float phi = atan2(py, px);
-	//float phi = 0.0;
-
-	if (px == 0) {
-		cout << "px is zero" << px << endl;
-	}
+	float px2 = tools.CheckNearZero(px);
+	float phi = atan2(py, px2);
 
 	//adjust phi value between pi and -pi
 	const float pi = 3.14159265;
-	if(phi < -1.0*pi){
-		phi += 2*pi;
-	}
-
-	else if (phi > pi){
-		phi -= 2*pi;
-	}
-
 
 	//3. rho_dot
 	float rho_dot = (px*vx + py*vy)/rho;
@@ -109,29 +88,27 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
 	//this is the error between the actual and the predicted data
 	VectorXd y = z - z_pred;
 
+	//adjusting angle of y to be between -pi and pi
+	float theta = y(1);
+	if(theta > pi){
+		theta = theta - 2 * pi;
+		}
+
+	else if (theta < -pi){
+		theta = theta + 2 * pi;
+	}
+	//push theta back to y
+	y(1) = theta;
+
+
 	//calculate the Jacobian
 	Hj_ = tools.CalculateJacobian(x_);
 
 	MatrixXd Hjt = Hj_.transpose();
 	MatrixXd S = Hj_ * P_ * Hjt + R_;
 	MatrixXd Si = S.inverse();
-	MatrixXd K = P_ * Hjt * Si;
+	MatrixXd K = (P_ * Hjt) * Si;
 
-
-	//if (t_step == 274){
-	//	cout << "x_: " << x_ << endl;
-	//	cout << "rho: " << rho << endl;
-	//	cout << "phi: " << phi << endl;
-	//	cout << "rho_dot: " << rho_dot << endl;
-		cout << "z: " << z << endl;
-		cout << "py: " << py << endl;
-		cout << "px: " << px << endl;
-		cout << "z_pred: " << z_pred << endl;
-		cout << "y: " << y << endl;
-		cout << "Hj: " << Hj_ << endl;
-		cout << "Si: " << Si << endl;
-		cout << "K: " << K << endl;
-	//}
 
 	//update prediction with measured data
 	x_ = x_ + K * y;

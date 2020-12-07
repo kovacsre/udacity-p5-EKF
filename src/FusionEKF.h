@@ -15,7 +15,6 @@ class FusionEKF {
    * Constructor.
    */
   FusionEKF();
-  int timestep;
 
   /**
    * Destructor.

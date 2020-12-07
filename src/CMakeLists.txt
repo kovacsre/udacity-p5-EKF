@@ -1,4 +1,4 @@
-project(ExtendedKalmanFilter)
+project(ExtendedKalmanFilter1)
 
 cmake_minimum_required (VERSION 3.5)
 

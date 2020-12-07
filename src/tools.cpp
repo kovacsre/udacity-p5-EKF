@@ -33,7 +33,7 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
 
 	//calculate RMSE
 	//squared residuals
-	for (unsigned int i=0; i < estimations.size(); i++){
+	for (int i=0; i < estimations.size(); i++){
 		VectorXd residual = estimations[i] - ground_truth[i];
 
 		//square coefficient-wise
@@ -69,14 +69,16 @@ MatrixXd Tools::CalculateJacobian(const VectorXd& x_state) {
 	//double px = Tools::CheckNearZero(px_r);
 	//double py = Tools::CheckNearZero(py_r);
 	float c1 = Tools::CheckNearZero(px*px+py*py);
-	float c2 = sqrt(c1);
-	float c3 = c1*c2;
+	float c2 = Tools::CheckNearZero(sqrt(c1));
+	float c3 = Tools::CheckNearZero(c1*c2);
+	float d1 = vx*py - vy*px;
+	float d2 = vy*px - vx*py;
 
 
 	//calculate the Jacobian
 	Hj << (px/c2), (py/c2), 0, 0,
-		  (-1*py/c1), (px/c1), 0, 0,
-		  py*(vx*py - vy*px)/c3, px*(vy*px - vx*py)/c3, px/c2, py/c2;
+		  (-1.*py/c1), (px/c1), 0, 0,
+		  py*d1/c3, px*d2/c3, px/c2, py/c2;
 
 	return Hj;
 

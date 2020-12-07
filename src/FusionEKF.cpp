@@ -18,13 +18,11 @@ FusionEKF::FusionEKF() {
 
   previous_timestamp_ = 0;
 
-  timestep = 0;
-
   // initializing matrices
   R_laser_ = MatrixXd(2, 2);
   R_radar_ = MatrixXd(3, 3);
   H_laser_ = MatrixXd(2, 4);
-  Hj_ = MatrixXd(3, 4);
+  //Hj_ = MatrixXd(3, 4);
 
   //measurement covariance matrix - laser
   R_laser_ << 0.0225, 0,
@@ -39,6 +37,8 @@ FusionEKF::FusionEKF() {
   ekf_.H_ = MatrixXd(2, 4);
   ekf_.H_ << 1, 0, 0, 0,
 		  	 0, 1, 0, 0;
+  //measurement matrix - radar
+  ekf_.Hj_= MatrixXd(3, 4);
 
   //initial state transition matrix F
   ekf_.F_ = MatrixXd(4, 4);
@@ -56,10 +56,7 @@ FusionEKF::FusionEKF() {
 
   //process covariance matrix Q
   ekf_.Q_ = MatrixXd(4, 4);
-  //ekf_.Q_ << 0, 0, 0, 0,
-	//       0, 0, 0, 0,
-	//		 0, 0, 0, 0,
-	//		 0, 0, 0, 0;
+
 }
 
 /**
@@ -76,7 +73,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
     // first measurement
     cout << "EKF: " << endl;
     ekf_.x_ = VectorXd(4);
-    ekf_.x_ << 1, 1, 1, 1; //tweak velocity data for better RMSE values at start
+    ekf_.x_ << 1, 1, 1, 1;
 
     if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
       // TODO: Convert radar from polar to cartesian coordinates 
@@ -84,7 +81,6 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
       //
     	float rho = measurement_pack.raw_measurements_[0];
     	float phi = measurement_pack.raw_measurements_[1];
-    	//float rho_dot = measurement_pack.raw_measurements_[2];
     	//as (vx, vy) cannot be obtained from rho_dot, keep initialized velocity values in ekf_.x_
     	//position values (px, py) are calculated from rho and phi
     	ekf_.x_(0) = rho * cos (phi); //x in cartesian coordinates
@@ -95,8 +91,11 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
     else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
       // TODO: Initialize state.
     	//update ekf_.x_ with measured position values (px, py) initial velocity (vx, vy) values are kept
-    	ekf_.x_(0) = measurement_pack.raw_measurements_[0];
-    	ekf_.x_(1) = measurement_pack.raw_measurements_[1];
+    	float px = measurement_pack.raw_measurements_[0];
+    	float py = measurement_pack.raw_measurements_[1];
+
+    	ekf_.x_(0) = px;
+		ekf_.x_(1) = py;
     	cout << "state: " << ekf_.x_ << endl;
 
     }
@@ -115,13 +114,14 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
   short noise_ax = 9;
   short noise_ay = 9;
 
-  //calculate elapsed time in seconds
+  //calculate elapsed time in seconds (deltaT)
   float dt = (measurement_pack.timestamp_ - previous_timestamp_)/1000000.0;
+  //save current timestamp to use in the next cycle
   previous_timestamp_ = measurement_pack.timestamp_;
 
   float dt2 = dt*dt;
-  float dt3 = (dt2*dt) / 2;
-  float dt4 = (dt2*dt2) / 4;
+  float dt3 = dt2*dt;
+  float dt4 = dt3*dt;
 
 
 
@@ -130,10 +130,10 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
   ekf_.F_(1, 3) = dt;
 
   //update process covariance matrix Q with the elapsed time
-  ekf_.Q_ << dt4*noise_ax, 0, dt3*noise_ax, 0,
-		     0, dt4*noise_ay, 0, dt3*noise_ay,
-			 dt3*noise_ax, 0, dt2*noise_ax, 0,
-			 0, dt3*noise_ay, 0, dt2*noise_ay;
+  ekf_.Q_ << dt4/4*noise_ax, 0, dt3/2*noise_ax, 0,
+		     0, dt4/4*noise_ay, 0, dt3/2*noise_ay,
+			 dt3/2*noise_ax, 0, dt2*noise_ax, 0,
+			 0, dt3/2*noise_ay, 0, dt2*noise_ay;
 
 
   ekf_.Predict();
@@ -146,22 +146,11 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
   if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
     // TODO: Radar updates
 	  ekf_.R_ = R_radar_;
-	  cout << "ekf_.x_: " << ekf_.x_ << endl;
-	  cout << "ekf_.P_: " << ekf_.P_ << endl;
-	  cout << "ekf_.F_: " << ekf_.F_ << endl;
-	  cout << "R_radar_: " << ekf_.R_ << endl;
-	  cout << "ekf_.Q_: " << ekf_.Q_ << endl;
 	  ekf_.UpdateEKF(measurement_pack.raw_measurements_);
 
   } else {
     // TODO: Laser updates
 	  ekf_.R_ = R_laser_;
-	  cout << "R_laser_: " << ekf_.R_ << endl;
-	  cout << "ekf_.x_: " << ekf_.x_ << endl;
-	  cout << "ekf_.P_: " << ekf_.P_ << endl;
-	  cout << "ekf_.F_: " << ekf_.F_ << endl;
-	  cout << "R_radar_: " << ekf_.R_ << endl;
-	  cout << "ekf_.Q_: " << ekf_.Q_ << endl;
 	  ekf_.Update(measurement_pack.raw_measurements_);
 
   }
